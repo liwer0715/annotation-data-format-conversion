@@ -44,7 +44,18 @@ def voc_2_coco(xmls_dir, json_output_path, check_format=True, need_imgs=False, i
     for xml_file in tqdm(sorted(os.listdir(xmls_dir))):
         if xml_file.endswith(".xml"):
             xml_path = os.path.join(xmls_dir, xml_file)
-            img_path = xml_file.replace(".xml", ".jpg")  # 假设图像文件名为xml文件去掉.xml后缀
+            # 尝试多种图片格式
+            img_name = xml_file.replace(".xml", "")
+            img_extensions = [".jpg", ".jpeg", ".png", ".bmp"]
+            img_path = None
+            for ext in img_extensions:
+                temp_path = os.path.join(input_voc_imgs_dir, img_name + ext)
+                if os.path.exists(temp_path):
+                    img_path = img_name + ext
+                    break
+            if img_path is None:
+                print(f"未找到图片文件: {img_name}")
+                continue
             img_id += 1
 
             # 解析XML文件
@@ -99,6 +110,7 @@ def voc_2_coco(xmls_dir, json_output_path, check_format=True, need_imgs=False, i
 
             # 拷贝图片
             if need_imgs:
+                # 重新构建完整的源图片路径
                 source_img_path = os.path.join(input_voc_imgs_dir, img_path)
                 target_img_path = os.path.join(imgs_output_dir, img_path)
                 if os.path.exists(source_img_path):
