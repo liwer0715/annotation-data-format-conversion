@@ -25,15 +25,23 @@ def voc2yolo_convert(size, box):
     return x_center, y_center, width_bbox, height_bbox
 
 
-def voc_2_yolo(xmls_dir, yolo_label_dir, categories=[], check_format=True):
+def voc_2_yolo(xmls_dir, yolo_label_dir, categories=[], check_format=True, need_imgs=False, input_voc_imgs_dir=None, copy_imgs=True):
     """
-    将VOC的XML标注转换为YOLO格式的TXT标注，不处理图片
+    将VOC的XML标注转换为YOLO格式的TXT标注，支持处理图片
 
     - xmls_dir: str, VOC XML标注文件的目录
     - yolo_label_dir: str, 输出YOLO TXT标注文件的目录
     - categories: list, 类别列表，如果不指定，就会按照加载顺序动态生成，确保与YOLO模型训练时使用的类别顺序一致
     - check_format: bool, 是否检查标注文件格式，默认为True
+    - need_imgs: bool, 是否需要处理图片
+    - input_voc_imgs_dir: str, VOC格式图片文件夹的路径
+    - copy_imgs: bool, 是否拷贝图片，否则移动图片
     """
+
+    if need_imgs and not os.path.exists(input_voc_imgs_dir):
+        raise Exception("VOC格式图片文件夹不存在")
+    if not os.path.exists(xmls_dir):
+        raise Exception("VOC格式XML文件文件夹不存在")
 
     if check_format:
         checking_format.check_xml_format(xmls_dir)
@@ -44,6 +52,8 @@ def voc_2_yolo(xmls_dir, yolo_label_dir, categories=[], check_format=True):
     os.mkdir(yolo_label_dir)
     txt_output_dir = os.path.join(yolo_label_dir, "txts")
     os.mkdir(txt_output_dir)
+    if need_imgs:
+        os.mkdir(os.path.join(yolo_label_dir, "imgs"))
 
     # 遍历XML文件，转换为txt文件
     for voc_file in tqdm(sorted(os.listdir(xmls_dir))):
@@ -77,6 +87,18 @@ def voc_2_yolo(xmls_dir, yolo_label_dir, categories=[], check_format=True):
                     f.write(
                         f"{categories.index(class_name)} {x_center} {y_center} {width_bbox} {height_bbox}\n"
                     )
+
+            # 拷贝图片
+            if need_imgs:
+                source_img_path = os.path.join(input_voc_imgs_dir, filename)
+                target_img_path = os.path.join(yolo_label_dir, "imgs", filename)
+                if os.path.exists(source_img_path):
+                    if copy_imgs:
+                        shutil.copy(source_img_path, target_img_path)
+                    else:
+                        shutil.move(source_img_path, target_img_path)
+                else:
+                    print(f"图片文件不存在: {source_img_path}")
 
     # 生成标签文件
     with open(os.path.join(yolo_label_dir, "classes.txt"), "w") as f:

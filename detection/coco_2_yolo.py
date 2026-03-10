@@ -30,16 +30,24 @@ def coco2yolo_convert(size, box):
     return (x, y, w, h)
 
 
-def coco_2_yolo(coco_json_file, ana_txt_dir, check_format=True):
+def coco_2_yolo(coco_json_file, ana_txt_dir, check_format=True, need_imgs=False, coco_imgs_path=None, copy_imgs=True):
     """
-    将COCO格式的标注文件转换为YOLO格式的标注文本，不处理图片。
+    将COCO格式的标注文件转换为YOLO格式的标注文本，支持处理图片。
 
     参数:
     - coco_json_file: str, COCO格式标注文件的路径。
     - ana_txt_dir: str, 生成的YOLO格式标注文本的输出目录路径。
     - check_format: bool, 是否检查标注文件格式。
+    - need_imgs: bool, 是否需要处理图片。
+    - coco_imgs_path: str, COCO格式图片文件夹的路径。
+    - copy_imgs: bool, 是否拷贝图片，否则移动图片。
 
     """
+    if need_imgs and not os.path.exists(coco_imgs_path):
+        raise Exception("COCO格式图片文件夹不存在")
+    if not os.path.exists(coco_json_file):
+        raise Exception("COCO格式json文件不存在")
+
     if check_format:
         checking_format.check_coco_json(coco_json_file)
 
@@ -50,6 +58,8 @@ def coco_2_yolo(coco_json_file, ana_txt_dir, check_format=True):
         shutil.rmtree(ana_txt_dir)
     os.mkdir(ana_txt_dir)
     os.mkdir(os.path.join(ana_txt_dir, "txts"))
+    if need_imgs:
+        os.mkdir(os.path.join(ana_txt_dir, "imgs"))
 
     # 创建类别映射文件，并初始化类别映射字典
     id_map = {}  # coco数据集的id不连续！是从1开始的，重新映射一下再输出！
@@ -82,6 +92,18 @@ def coco_2_yolo(coco_json_file, ana_txt_dir, check_format=True):
                 f_txt.write(
                     "%s %s %s %s %s\n" %
                     (id_map[ann["category_id"]], box[0], box[1], box[2], box[3]))
+
+        # 拷贝图片
+        if need_imgs:
+            source_img_path = os.path.join(coco_imgs_path, filename)
+            target_img_path = os.path.join(ana_txt_dir, "imgs", filename)
+            if os.path.exists(source_img_path):
+                if copy_imgs:
+                    shutil.copy(source_img_path, target_img_path)
+                else:
+                    shutil.move(source_img_path, target_img_path)
+            else:
+                print(f"图片文件不存在: {source_img_path}")
 
     if check_format:
         checking_format.check_yolo_txt_file(os.path.join(ana_txt_dir, "txts"),

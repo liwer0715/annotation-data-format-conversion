@@ -7,24 +7,35 @@ from tqdm import tqdm
 from utils import checking_format
 
 
-def yolo_2_voc(yolo_txt_dir, img_dir, xmls_dir, classes_file, check_format=True):
+def yolo_2_voc(yolo_txt_dir, img_dir, xmls_dir, classes_file, check_format=True, need_imgs=True, copy_imgs=True):
     """
-    将YOLO格式的TXT标注转换为VOC格式的XML标注。
+    将YOLO格式的TXT标注转换为VOC格式的XML标注，支持处理图片。
 
     参数：
     - yolo_label_dir: str, YOLO TXT标注文件的目录
     - xmls_dir: str, 输出VOC XML标注文件的目录
     - img_dir: str, 图像文件的目录
     - classes_file: str, 类别文件
+    - check_format: bool, 是否检查标注格式
+    - need_imgs: bool, 是否需要处理图片
+    - copy_imgs: bool, 是否拷贝图片，否则移动图片
     """
+    if not os.path.exists(yolo_txt_dir):
+        raise Exception("YOLO格式标注文件目录不存在")
+    if not os.path.exists(img_dir):
+        raise Exception("图片文件目录不存在")
+    if not os.path.exists(classes_file):
+        raise Exception("类别文件不存在")
+
     # 构建存储目录
     if os.path.exists(xmls_dir):
         shutil.rmtree(xmls_dir)
     os.mkdir(xmls_dir)
-    imgs_output_dir = os.path.join(xmls_dir, "imgs")
     xmls_output_dir = os.path.join(xmls_dir, "xmls")
-    os.mkdir(imgs_output_dir)
     os.mkdir(xmls_output_dir)
+    if need_imgs:
+        imgs_output_dir = os.path.join(xmls_dir, "imgs")
+        os.mkdir(imgs_output_dir)
 
     # 构建标签映射列表
     categories = {}
@@ -108,6 +119,19 @@ def yolo_2_voc(yolo_txt_dir, img_dir, xmls_dir, classes_file, check_format=True)
             xml = tostring(root, pretty_print=True)
             with open(xml_file, "wb") as f:
                 f.write(xml)
+
+            # 拷贝图片
+            if need_imgs:
+                source_img_path = os.path.join(img_dir, img_file)
+                target_img_path = os.path.join(imgs_output_dir, img_file)
+                if os.path.exists(source_img_path):
+                    if copy_imgs:
+                        shutil.copy(source_img_path, target_img_path)
+                    else:
+                        shutil.move(source_img_path, target_img_path)
+                else:
+                    print(f"图片文件不存在: {source_img_path}")
+
     if check_format:
         checking_format.check_xml_format(xmls_output_dir)
 

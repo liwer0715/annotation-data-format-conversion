@@ -2,19 +2,28 @@ import os
 import json
 import xml.etree.ElementTree as ET
 from tqdm import tqdm
+import shutil
 from utils import checking_format
 
 
-def voc_2_coco(xmls_dir, json_output_path, check_format=True):
+def voc_2_coco(xmls_dir, json_output_path, check_format=True, need_imgs=False, input_voc_imgs_dir=None, copy_imgs=True):
     """
-    将PASCAL VOC格式的数据集转换为COCO格式，不处理图片
+    将PASCAL VOC格式的数据集转换为COCO格式，支持处理图片
 
     参数:
     - xmls_dir: str, 包含VOC XML标注文件的目录路径。
     - json_output_path: str, 生成的COCO格式标注信息的输出JSON文件路径。
     - check_format: bool, 是否检查XML标注文件格式，默认为True。
+    - need_imgs: bool, 是否需要处理图片。
+    - input_voc_imgs_dir: str, VOC格式图片文件夹的路径。
+    - copy_imgs: bool, 是否拷贝图片，否则移动图片。
 
     """
+
+    if need_imgs and not os.path.exists(input_voc_imgs_dir):
+        raise Exception("VOC格式图片文件夹不存在")
+    if not os.path.exists(xmls_dir):
+        raise Exception("VOC格式XML文件文件夹不存在")
 
     images = []
     annotations = []
@@ -24,6 +33,12 @@ def voc_2_coco(xmls_dir, json_output_path, check_format=True):
 
     if check_format:
         checking_format.check_xml_format(xmls_dir)
+
+    # 创建输出目录
+    os.makedirs(os.path.dirname(json_output_path), exist_ok=True)
+    if need_imgs:
+        imgs_output_dir = os.path.join(os.path.dirname(json_output_path), "imgs")
+        os.makedirs(imgs_output_dir, exist_ok=True)
 
     # 遍历VOC数据集中的XML文件
     for xml_file in tqdm(sorted(os.listdir(xmls_dir))):
@@ -81,6 +96,18 @@ def voc_2_coco(xmls_dir, json_output_path, check_format=True):
                     "iscrowd": 0,
                 }
                 annotations.append(ann)
+
+            # 拷贝图片
+            if need_imgs:
+                source_img_path = os.path.join(input_voc_imgs_dir, img_path)
+                target_img_path = os.path.join(imgs_output_dir, img_path)
+                if os.path.exists(source_img_path):
+                    if copy_imgs:
+                        shutil.copy(source_img_path, target_img_path)
+                    else:
+                        shutil.move(source_img_path, target_img_path)
+                else:
+                    print(f"图片文件不存在: {source_img_path}")
 
     # 构建COCO格式的数据结构
     coco_format = {

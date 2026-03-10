@@ -2,6 +2,7 @@ import os
 import json
 from tqdm import tqdm
 from PIL import Image
+import shutil
 from utils import checking_format
 
 
@@ -9,9 +10,11 @@ def yolo_2_coco(yolo_txt_dir,
                 img_dir,
                 coco_output_path,
                 classes_file,
-                check_format=True):
+                check_format=True,
+                need_imgs=False,
+                copy_imgs=True):
     """
-    将YOLO格式的标注转换为COCO格式的JSON文件。
+    将YOLO格式的标注转换为COCO格式的JSON文件，支持处理图片。
 
     参数:
     - yolo_label_dir: str, YOLO TXT标注文件的目录
@@ -19,7 +22,16 @@ def yolo_2_coco(yolo_txt_dir,
     - coco_output_path: str, 输出COCO JSON文件的路径
     - classes_file: str, yolo中记录的标签文件
     - check_format: bool, 是否检查标注格式
+    - need_imgs: bool, 是否需要处理图片
+    - copy_imgs: bool, 是否拷贝图片，否则移动图片
     """
+    if not os.path.exists(yolo_txt_dir):
+        raise Exception("YOLO格式标注文件目录不存在")
+    if not os.path.exists(img_dir):
+        raise Exception("图片文件目录不存在")
+    if not os.path.exists(classes_file):
+        raise Exception("类别文件不存在")
+
     images = []
     annotations = []
     categories = []
@@ -27,6 +39,12 @@ def yolo_2_coco(yolo_txt_dir,
 
     if check_format:
         checking_format.check_yolo_txt_file(yolo_txt_dir)
+
+    # 创建输出目录
+    os.makedirs(os.path.dirname(coco_output_path), exist_ok=True)
+    if need_imgs:
+        imgs_output_dir = os.path.join(os.path.dirname(coco_output_path), "imgs")
+        os.makedirs(imgs_output_dir, exist_ok=True)
 
     # 构建COCO格式的类别列表
     with open(classes_file, "r") as f:
@@ -99,6 +117,18 @@ def yolo_2_coco(yolo_txt_dir,
                         "iscrowd":
                         0,
                     })
+
+            # 拷贝图片
+            if need_imgs:
+                source_img_path = os.path.join(img_dir, img_file)
+                target_img_path = os.path.join(imgs_output_dir, img_file)
+                if os.path.exists(source_img_path):
+                    if copy_imgs:
+                        shutil.copy(source_img_path, target_img_path)
+                    else:
+                        shutil.move(source_img_path, target_img_path)
+                else:
+                    print(f"图片文件不存在: {source_img_path}")
 
     # 构建COCO格式的数据结构
     coco_format = {
